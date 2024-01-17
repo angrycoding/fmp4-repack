@@ -11,40 +11,14 @@ const getFragmentInfo = (path) => {
 	arrayBuffer.fileStart = 0;
 	mp4boxfile.appendBuffer(arrayBuffer);
 
-	// console.info(JSON.stringify(mp4boxfile, null, '\t'));
-	// throw 1;
-
 	const mdatSection = mp4boxfile.mdats[0];
 	let mdatSectionData = data.subarray(mdatSection.start + 8, mdatSection.start + mdatSection.size);
-
-	// console.info('TOTAL_MDAT_LEN', mdatSectionData.length)
-
-	// const result = {
-	// 	mdat: mdatSectionData,
-	// 	tracks: []
-	// }
-	// console.info(mp4boxfile)
-	// console.info(mp4boxfile.moov.traks)
 
 	const result = mp4boxfile.moov.traks.map(trak => {
 
 		
 		
 		console.info('---------------- ' + path + '-----------------------------')
-
-		// let durations = 0;
-		// let cts = 0;
-		// let dts = 0;
-
-
-		// trak.samples.forEach(s => {
-		// 	console.info(s.cts)
-		// 	durations+=s.duration;
-		// 	cts+=s.cts;
-		// 	dts+=s.dts;
-		// })
-		// console.info({ durations, cts, dts })
-		// console.info(trak.samples)
 
 		let codecData = Buffer.from([]);
 
@@ -56,22 +30,13 @@ const getFragmentInfo = (path) => {
 					entry.start + entry.size
 				)
 			])
-			// console.info(entry)
-			// console.info(entry.start);
-			// console.info(data.readUInt32BE(entry.start));
+
 		}
 
-		// throw 1;
-		
-// console.info(trak);
-// throw 1;
 		return {
-			timescale: trak.mdia.mdhd.timescale,
 			id: trak.tkhd.track_id,
-			duration: trak.tkhd.duration,
+			timescale: trak.mdia.mdhd.timescale,
 			codecData,
-			originalData: Buffer.concat([data]),
-			mdatSectionData,
 			samples: trak.samples,
 			mdat: Buffer.from([])
 		}
@@ -79,7 +44,6 @@ const getFragmentInfo = (path) => {
 
 	const chunk_offsets = [];
 	for (const trak of mp4boxfile.moov.traks) {
-		// console.info(trak.mdia.minf.stbl.stco.chunk_offsets)
 		chunk_offsets.push(
 			...trak.mdia.minf.stbl.stco.chunk_offsets
 		);
@@ -87,23 +51,12 @@ const getFragmentInfo = (path) => {
 
 	chunk_offsets.sort((a, b) => a - b);
 
-	// console.info(result[0]?.samples)
-	// console.info(result[1]?.samples)
-
 	let trackNumber = 0;
 
 
 	while (chunk_offsets.length) {
 		const [ start, end ] = [chunk_offsets.shift(), chunk_offsets[0]];
 		const chunkLen = end - start;
-		
-		// console.info(trackNumber % result.length, chunkLen);
-		// console.info({
-		// 	trackNumber: trackNumber % result.length,
-		// 	start, end,
-		// 	chunkLen
-		// 	// data: data.subarray(start, end - 1)
-		// });
 
 		let frag = mdatSectionData;
 
@@ -122,27 +75,14 @@ const getFragmentInfo = (path) => {
 		trackNumber++;
 	}
 
-	// console.info(result[0].mdat.length)
-	// console.info(result[1].mdat.length)
-	// console.info(result[0].mdat.length + result[1].mdat.length)
-
-
-	// for (const trak of mp4boxfile.moov.traks) {
-	// 	console.info(trak.mdia.minf.stbl.stco)
-	// 	// result.tracks.push({
-	// 	// 	id: trak.tkhd.track_id,
-	// 	// 	samples: trak.mdia.minf.stbl.stsz.sample_sizes.map(size => ({ size })),
-	// 	// });
-	// }
-
+	
 	return result;
 
 }
 
 
-
 let info = getFragmentInfo('./videofrags/1.mp4');
-var init = MP4Generator.initSegment(info, Infinity, 1);
+var init = MP4Generator.initSegment(info, 1);
 
 const frags = [];
 

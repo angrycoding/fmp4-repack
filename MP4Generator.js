@@ -273,7 +273,6 @@ const moovAtom = (tracks) => MP4Box(
 	))
 );
 
-
 module.exports = {
 	initSegment: (tracks) => {
 		return moovAtom(tracks);
