@@ -1,14 +1,20 @@
-const MP4 = {};
+const uint32arr = (value) => [
+	(value >> 24) & 0xFF,
+	(value >> 16) & 0xFF,
+	(value >> 8) & 0xFF,
+	value & 0xFF,
+]
 
 const MP4Box = (type, ...payload) => {
 
 	type = type.split('').map(ch => ch.charCodeAt(0));
 
 	let size = 8;
-	for (let _a = 0, payload_1 = payload; _a < payload_1.length; _a++) {
-		const p = payload_1[_a];
-		size += p.byteLength;
+
+	for (const p of payload) {
+		size += p.byteLength || p.length;
 	}
+
 	const result = new Uint8Array(size);
 	result[0] = (size >> 24) & 0xff;
 	result[1] = (size >> 16) & 0xff;
@@ -16,359 +22,273 @@ const MP4Box = (type, ...payload) => {
 	result[3] = size & 0xff;
 	result.set(type, 4);
 	size = 8;
-	for (let _b = 0, payload_2 = payload; _b < payload_2.length; _b++) {
-		const box = payload_2[_b];
+
+	for (const box of payload) {
 		result.set(box, size);
-		size += box.byteLength;
+		size += (box.byteLength || box.length);
 	}
+
 	return result;
 }
 
-MP4.mdat = (data) => MP4Box(
-	'mdat',
-	data
-)
-
-MP4.mdhd = (timescale) => MP4Box(
-	'mdhd',
-	new Uint8Array([
-		// version
-		0x00,
-		// flags
-		0x00, 0x00, 0x00,
-		// creation time (in seconds since midnight, January 1, 1904)
-		0x00, 0x00, 0x00, 0x00,
-		// modification time
-		0x00, 0x00, 0x00, 0x00,
-		// time scale
-		(timescale >> 24) & 0xFF,
-		(timescale >> 16) & 0xFF,
-		(timescale >> 8) & 0xFF,
-		timescale & 0xFF,
-		// duration
-		0x00, 0x00, 0x00, 0x00,
-		// language
-		0x55, 0xc4,
-		// quality
-		0x00, 0x00,
-	])
-);
-
-MP4.mfhd = (sequenceNumber) => MP4Box(
-	'mfhd',
-	new Uint8Array([
-		0x00,
-		0x00, 0x00, 0x00,
-		// sequence number
-		(sequenceNumber >> 24),
-		(sequenceNumber >> 16) & 0xFF,
-		(sequenceNumber >> 8) & 0xFF,
-		sequenceNumber & 0xFF,
-	])
-);
-
-MP4.trex = (track) => {
-	const id = track.id;
-	return MP4Box('trex', new Uint8Array([
-		// flags
-		0x00, 0x00, 0x00, 0x00,
-		// track id
-		(id >> 24),
-		(id >> 16) & 0XFF,
-		(id >> 8) & 0XFF,
-		(id & 0xFF),
-		// default_sample_description_index
-		0x00, 0x00, 0x00, 0x01,
-		// default_sample_duration
-		0x00, 0x00, 0x00, 0x3c,
-		// default_sample_size
-		0x00, 0x00, 0x00, 0x00,
-		// default_sample_flags;
-		0x00, 0x01, 0x00, 0x00,
-	]));
-}
-
-MP4.moof = (sn, baseMediaDecodeTime, track) => MP4Box(
+const moofAtom = (baseMediaDecodeTime, track) => MP4Box(
 	'moof',
-	MP4.mfhd(sn),
-	MP4.traf(track, baseMediaDecodeTime)
+	MP4Box(
+		'mfhd',
+		new Uint8Array([
+			0x00,
+			0x00, 0x00, 0x00,
+			// sequence number
+			0x00, 0x00, 0x00, 0x00
+		])
+	),
+	MP4Box(
+		'traf',
+		MP4Box('tfhd', new Uint8Array([
+			// version
+			0x00,
+			// flags
+			// * `AB|00000000|00CDE0FG`
+			// * `A.|........|........` default-base-is-moof
+			// * `.B|........|........` duration-is-empty
+			// * `..|........|..C.....` default-sample-flags-present
+			// * `..|........|...D....` default-sample-size-present
+			// * `..|........|....E...` default-sample-duration-present
+			// * `..|........|......F.` sample-description-index-present
+			// * `..|........|.......G` base-data-offset-present
+			0b00000000, 0x00, 0b00001000,
+			// track id
+			...uint32arr(track.id),
+			// default_sample_duration
+			...uint32arr(track.samples[0].duration),
+		])),
+		MP4Box('tfdt', new Uint8Array([
+			// version
+			0x00,
+			// flags
+			0x00, 0x00, 0x00,
+			// base media decode time
+			...uint32arr(baseMediaDecodeTime),
+		])),
+		MP4Box('trun', new Uint8Array([
+			// version
+			0x00,
+			// * `ABCD|00000E0F`
+			// * `A...|........` sample‐composition‐time‐offsets‐present
+			// * `.B..|........` sample‐flags‐present
+			// * `..C.|........` sample‐size‐present
+			// * `...D|........` sample‐duration‐present
+			// * `....|.....E..` first‐sample‐flags‐present
+			// * `....|.......G` data-offset-present
+			0x00, 0b00000010, 0b00000001,
+			// number of samples
+			...uint32arr(track.samples.length),
+			// data offset (data-offset-present flag)
+			42, 42, 42, 42,
+			// sample sizes (sample‐size‐present flag)
+			...track.samples.map(sample => uint32arr(sample.size)).flat()
+		]))
+	)
 );
 
-MP4.mvex = (tracks) => MP4Box(
-	'mvex',
-	...tracks.map(MP4.trex)
-);
-
-MP4.stsd = (track) => MP4Box(
-	'stsd',
-	new Uint8Array([
-		// version
-		0x00,
-		// flags
-		0x00, 0x00, 0x00,
-		// entry count
-		0x00, 0x00, 0x00, 0x01
-	]),
-	new Uint8Array(track.codecData)
-);
-
-MP4.moov = (tracks, duration, timescale) => MP4Box(
+const moovAtom = (tracks) => MP4Box(
 	'moov',
-	MP4.mvhd(timescale, duration),
-	MP4.mvex(tracks),
-	...tracks.map(MP4.trak)
+	MP4Box(
+		'mvhd',
+		new Uint8Array([
+			// version
+			0x00,
+			// flags
+			0x00, 0x00, 0x00,
+			// creation time
+			0x00, 0x00, 0x00, 0x00,
+			// modification time
+			0x00, 0x00, 0x00, 0x00,
+			// timescale
+			0x00, 0x00, 0x00, 0x01,
+			// duration
+			0x00, 0x00, 0x00, 0x00,
+			// rate
+			0x00, 0x01, 0x00, 0x00,
+			// volume
+			0x01, 0x00,
+			// reserved
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			// a b u (matrix structure)
+			0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			// c d v
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+			// x y w
+			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00,
+			// preview time
+			0x00, 0x00, 0x00, 0x00,
+			// preview duration
+			0x00, 0x00, 0x00, 0x00,
+			// poster time
+			0x00, 0x00, 0x00, 0x00,
+			// selection time
+			0x00, 0x00, 0x00, 0x00,
+			// selection duration
+			0x00, 0x00, 0x00, 0x00,
+			// current time
+			0x00, 0x00, 0x00, 0x00,
+			// next track
+			0x00, 0x00, 0x00, 0x02,
+		])
+	),
+	MP4Box(
+		'mvex',
+		...tracks.map(track => MP4Box(
+			'trex',
+			new Uint8Array([
+				// flags
+				0x00, 0x00, 0x00, 0x00,
+				// track id
+				...uint32arr(track.id),
+				// default_sample_description_index
+				0x00, 0x00, 0x00, 0x01,
+				// default_sample_duration
+				0x00, 0x00, 0x00, 0x00,
+				// default_sample_size
+				0x00, 0x00, 0x00, 0x00,
+				// default_sample_flags;
+				0x00, 0x01, 0x00, 0x00,
+			])
+		))
+	),
+	...tracks.map(track => MP4Box(
+		'trak',
+		MP4Box(
+			'tkhd',
+			new Uint8Array([
+				// version
+				0x00,
+				// flags (0x01 - track enabled, 0x02 - track in movie, 0x04 - track in preview, 0x08 - track in poster)
+				0x00, 0x00, 0x01,
+				// creation time
+				0x00, 0x00, 0x00, 0x00,
+				// modification time
+				0x00, 0x00, 0x00, 0x00,
+				// track id
+				...uint32arr(track.id),
+				// reserved
+				0x00, 0x00, 0x00, 0x00,
+				// duration
+				0x00, 0x00, 0x00, 0x00,
+				// reserved
+				0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+				// layer
+				0x00, 0x00,
+				// alternate group
+				0x00, 0x00,
+				// volume
+				0x01, 0x00,
+				// reserved
+				0x00, 0x00,
+				// a b u (matrix structure)
+				0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+				// c d v 
+				0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+				// x y w
+				0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00,
+				// width
+				0x00,0x00,0x00,0x00,
+				// height
+				0x00,0x00,0x00,0x00
+			])
+		),
+		MP4Box(
+			'mdia',
+			MP4Box(
+				'mdhd',
+				new Uint8Array([
+					// version
+					0x00,
+					// flags
+					0x00, 0x00, 0x00,
+					// creation time (in seconds since midnight, January 1, 1904)
+					0x00, 0x00, 0x00, 0x00,
+					// modification time
+					0x00, 0x00, 0x00, 0x00,
+					// time scale
+					...uint32arr(track.timescale),
+					// duration
+					0x00, 0x00, 0x00, 0x00,
+					// language
+					0x55, 0xc4,
+					// quality
+					0x00, 0x00,
+				])
+			),
+			MP4Box(
+				'minf',
+				MP4Box(
+					'stbl',
+					
+					// Sample description atom
+					MP4Box(
+						'stsd',
+						new Uint8Array([
+							// version
+							0x00,
+							// flags
+							0x00, 0x00, 0x00,
+							// entry count
+							0x00, 0x00, 0x00, 0x01
+						]),
+						new Uint8Array(track.codecData)
+					),
+					
+					// Time-to-sample atom
+					MP4Box('stts', new Uint8Array([
+						0x00,
+						0x00, 0x00, 0x00,
+						0x00, 0x00, 0x00, 0x00,
+					])),
+					
+					// Sample-to-chunk atom
+					MP4Box('stsc', new Uint8Array([
+						0x00,
+						0x00, 0x00, 0x00,
+						0x00, 0x00, 0x00, 0x00,
+					])),
+				
+					// Sample Size atom
+					MP4Box('stsz', new Uint8Array([
+						0x00,
+						0x00, 0x00, 0x00,
+						0x00, 0x00, 0x00, 0x00,
+						0x00, 0x00, 0x00, 0x00,
+					])),
+				
+					// Chunk Offset atom
+					MP4Box('stco', new Uint8Array([
+						0x00,
+						0x00, 0x00, 0x00,
+						0x00, 0x00, 0x00, 0x00,
+					]))
+				)
+			)
+		)
+	))
 );
 
-MP4.stbl = (track) => MP4Box(
-	'stbl',
-	
-	// Sample description atom
-	MP4.stsd(track),
-	
-	// Time-to-sample atom
-	MP4Box('stts', new Uint8Array([
-		0x00,
-		0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-	])),
-	
-	// Sample-to-chunk atom
-	MP4Box('stsc', new Uint8Array([
-		0x00,
-		0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-	])),
-
-	// Sample Size atom
-	MP4Box('stsz', new Uint8Array([
-		0x00,
-		0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-	])),
-
-	// Chunk Offset atom
-	MP4Box('stco', new Uint8Array([
-		0x00,
-		0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-	]))
-);
-
-
-MP4.mdia = (track) => MP4Box(
-	'mdia',
-	MP4.mdhd(track.timescale),
-	/*MP4.HDLR,*/
-	MP4.minf(track)
-);
-
-MP4.minf = (track) => MP4Box(
-	'minf',
-	MP4Box('vmhd', new Uint8Array([
-		0x00,
-		0x00, 0x00, 0x01,
-		0x00, 0x00,
-		0x00, 0x00,
-		0x00, 0x00,
-		0x00, 0x00,
-	])),
-	/*MP4.DINF,*/
-	MP4.stbl(track)
-);
-
-MP4.mvhd = (timescale, duration) => MP4Box(
-	'mvhd',
-	new Uint8Array([
-		0x00,
-		0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-		(timescale >> 24) & 0xFF,
-		(timescale >> 16) & 0xFF,
-		(timescale >> 8) & 0xFF,
-		timescale & 0xFF,
-		(duration >> 24) & 0xFF,
-		(duration >> 16) & 0xFF,
-		(duration >> 8) & 0xFF,
-		duration & 0xFF,
-		0x00, 0x01, 0x00, 0x00,
-		0x01, 0x00,
-		0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x01, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x01, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-		0x40, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x02,
-	])
-);
-
-MP4.tkhd = (track) => {
-	const { id, width, height } = track;
-	return MP4Box('tkhd', new Uint8Array([
-		0x00,
-		0x00, 0x00, 0x01,
-		0x00, 0x00, 0x00, 0x01,
-		0x00, 0x00, 0x00, 0x02,
-		(id >> 24) & 0xFF,
-		(id >> 16) & 0xFF,
-		(id >> 8) & 0xFF,
-		id & 0xFF,
-		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00,
-		0x00, 0x00,
-		(track.type === 'audio' ? 0x01 : 0x00), 0x00,
-		0x00, 0x00,
-		0x00, 0x01, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x01, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-		0x40, 0x00, 0x00, 0x00,
-		(width >> 8) & 0xFF,
-		width & 0xFF,
-		0x00, 0x00,
-		(height >> 8) & 0xFF,
-		height & 0xFF,
-		0x00, 0x00,
-	]));
-}
-
-MP4.traf = (track, baseMediaDecodeTime) => {
-	
-	
-	const id = track.id;
-	const duration = track.samples[0].duration;
-	console.info({duration});
-	// throw 1;
-
-
-	return MP4Box('traf', MP4Box('tfhd', new Uint8Array([
-		// 8
-		0x00,
-		0x00, 0x00, 0x38,
-		(id >> 24),
-		(id >> 16) & 0XFF,
-		(id >> 8) & 0XFF,
-		(id & 0xFF),
-
-		(duration >> 24),
-		(duration >> 16) & 0XFF,
-		(duration >> 8) & 0XFF,
-		(duration & 0xFF),
-
-		// 0x00, 0x00, 0x02, 0x80,
-		0x00, 0x00, 0x12, 0x61,
-		0x01,0x01,0x00,0x00
-		
-	])), MP4Box('tfdt', new Uint8Array([
-		// 8
-		0x00,
-		0x00, 0x00, 0x00,
-		(baseMediaDecodeTime >> 24),
-		(baseMediaDecodeTime >> 16) & 0XFF,
-		(baseMediaDecodeTime >> 8) & 0XFF,
-		(baseMediaDecodeTime & 0xFF),
-	])), MP4.trun(track, 16 +
-		16 +
-		8 +
-		16 +
-		8 +
-		4 + 
-		4 +
-		4 +
-		8));
-}
-
-MP4.trak = (track) => MP4Box(
-	'trak',
-	MP4.tkhd(track),
-	MP4.mdia(track)
-);
-
-MP4.trun = (track, offset) => {
-	const samples = track.samples || [];
-	const len = samples.length;
-	track.isKeyFrame = true;
-	const additionalLen = track.isKeyFrame ? 4 : 0;
-	const arraylen = 12 + additionalLen + ((4 + 4 + 0) * len);
-	const array = new Uint8Array(arraylen);
-	offset += 8 + arraylen;
-	array.set([
-		0x00,
-		0x00, 0x0A, (track.isKeyFrame ? 0x05 : 0x01),
-		(len >>> 24) & 0xFF,
-		(len >>> 16) & 0xFF,
-		(len >>> 8) & 0xFF,
-		len & 0xFF,
-		(offset >>> 24) & 0xFF,
-		(offset >>> 16) & 0xFF,
-		(offset >>> 8) & 0xFF,
-		offset & 0xFF,
-	], 0);
-
-	if (track.isKeyFrame) {
-		array.set([
-			0x02, 0x00, 0x00, 0x00,
-		], 12);
-	}
-
-	// console.info(JSON.stringify(Array.from(array)))
-	
-	for (let i = 0; i < len; i++) {
-		const sample = samples[i];
-		// console.info(sample);
-
-		const { size, duration, cts, dts } = sample;
-		const x = cts - dts;
-		array.set([
-
-
-			// (duration >>> 24) & 0xFF,
-			// (duration >>> 16) & 0xFF,
-			// (duration >>> 8) & 0xFF,
-			// duration & 0xFF,
-
-			(size >>> 24) & 0xFF,
-			(size >>> 16) & 0xFF,
-			(size >>> 8) & 0xFF,
-			size & 0xFF,
-
-			(x >>> 24) & 0xFF,
-			(x >>> 16) & 0xFF,
-			(x >>> 8) & 0xFF,
-			x & 0xFF,
-		], 12 + additionalLen + 8 * i);
-	}
-	return MP4Box('trun', array);
-}
 
 module.exports = {
-	initSegment: (tracks, duration, timescale) => {
-		return MP4.moov(tracks, duration, timescale);
+	initSegment: (tracks) => {
+		return moovAtom(tracks);
 	},
 	fragmentSegment: (baseMediaDecodeTime, track, payload) => {
-		const moof = MP4.moof(0, baseMediaDecodeTime, track);
-		const mdat = MP4.mdat(payload);
+		const moof = moofAtom(baseMediaDecodeTime, track);
+		const index = moof.indexOf(42);
+
+		const x = moof.length + 8;
+		moof[index + 0] = (x >> 24) & 0xFF;
+		moof[index + 1] = (x >> 16) & 0xFF;
+		moof[index + 2] = (x >> 8) & 0xFF;
+		moof[index + 3] = (x >> 0) & 0xFF;
+
+		const mdat = MP4Box('mdat', payload);
 		const result = new Uint8Array(moof.byteLength + mdat.byteLength);
 		result.set(moof, 0);
 		result.set(mdat, moof.byteLength);
