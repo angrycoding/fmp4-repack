@@ -1,147 +1,190 @@
 const MP4 = {};
 
-MP4.box = function (type) {
+MP4.box = (type, ...payload) => {
+
 	type = type.split('').map(ch => ch.charCodeAt(0));
-	var payload = [];
-	for (var _i = 1; _i < arguments.length; _i++) {
-		payload[_i - 1] = arguments[_i];
-	}
-	var size = 8;
-	for (var _a = 0, payload_1 = payload; _a < payload_1.length; _a++) {
-		var p = payload_1[_a];
+
+	let size = 8;
+	for (let _a = 0, payload_1 = payload; _a < payload_1.length; _a++) {
+		const p = payload_1[_a];
 		size += p.byteLength;
 	}
-	var result = new Uint8Array(size);
+	const result = new Uint8Array(size);
 	result[0] = (size >> 24) & 0xff;
 	result[1] = (size >> 16) & 0xff;
 	result[2] = (size >> 8) & 0xff;
 	result[3] = size & 0xff;
 	result.set(type, 4);
 	size = 8;
-	for (var _b = 0, payload_2 = payload; _b < payload_2.length; _b++) {
-		var box = payload_2[_b];
+	for (let _b = 0, payload_2 = payload; _b < payload_2.length; _b++) {
+		const box = payload_2[_b];
 		result.set(box, size);
 		size += box.byteLength;
 	}
 	return result;
-};
-	var hdlr = new Uint8Array([
-		0x00,
-		0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-		0x76, 0x69, 0x64, 0x65,
-		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-		0x56, 0x69, 0x64, 0x65,
-		0x6f, 0x48, 0x61, 0x6e,
-		0x64, 0x6c, 0x65, 0x72, 0x00,
-	]);
-	var dref = new Uint8Array([
-		0x00,
-		0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x01,
-		0x00, 0x00, 0x00, 0x0c,
-		0x75, 0x72, 0x6c, 0x20,
-		0x00,
-		0x00, 0x00, 0x01,
-	]);
-	var stco = new Uint8Array([
-		0x00,
-		0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-	]);
-	MP4.STTS = MP4.STSC = MP4.STCO = stco;
-	MP4.STSZ = new Uint8Array([
-		0x00,
-		0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-	]);
-	MP4.VMHD = new Uint8Array([
-		0x00,
-		0x00, 0x00, 0x01,
-		0x00, 0x00,
-		0x00, 0x00,
-		0x00, 0x00,
-		0x00, 0x00,
-	]);
-	MP4.SMHD = new Uint8Array([
-		0x00,
-		0x00, 0x00, 0x00,
-		0x00, 0x00,
-		0x00, 0x00,
-	]);
-	MP4.STSD = new Uint8Array([
-		0x00,
-		0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x01
-	]);
-	MP4.FTYP = MP4.box('ftyp', new Uint8Array([
-		0x69, 0x73, 0x6f, 0x35,
-		0x00, 0x00, 0x00, 0x01,
-		0x61, 0x76, 0x63, 0x31,
-		0x69, 0x73, 0x6f, 0x35,
-		0x64, 0x61, 0x73, 0x68,
-	]));
-	MP4.STYP = MP4.box('styp', new Uint8Array([
-		0x6d, 0x73, 0x64, 0x68,
-		0x00, 0x00, 0x00, 0x00,
-		0x6d, 0x73, 0x64, 0x68,
-		0x6d, 0x73, 0x69, 0x78,
-	]));
-	MP4.DINF = MP4.box('dinf', MP4.box('dref', dref));
-	MP4.HDLR = MP4.box('hdlr', hdlr);
+}
 
-
-MP4.mdat = function (data) {
+MP4.mdat = (data) => {
 	return MP4.box('mdat', data);
-};
-MP4.mdhd = function (timescale) {
+}
+
+MP4.mdhd = (timescale) => {
 	return MP4.box('mdhd', new Uint8Array([
+		// version
 		0x00,
+		// flags
 		0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x01,
-		0x00, 0x00, 0x00, 0x02,
+		// creation time (in seconds since midnight, January 1, 1904)
+		0x00, 0x00, 0x00, 0x00,
+		// modification time
+		0x00, 0x00, 0x00, 0x00,
+		// time scale
 		(timescale >> 24) & 0xFF,
 		(timescale >> 16) & 0xFF,
 		(timescale >> 8) & 0xFF,
 		timescale & 0xFF,
+		// duration
 		0x00, 0x00, 0x00, 0x00,
+		// language
 		0x55, 0xc4,
+		// quality
 		0x00, 0x00,
 	]));
-};
-MP4.mdia = function (track) {
-	return MP4.box('mdia', MP4.mdhd(track.timescale), /*MP4.HDLR,*/ MP4.minf(track));
-};
-MP4.mfhd = function () {
+}
+
+MP4.mfhd = (sequenceNumber) => {
 	return MP4.box('mfhd', new Uint8Array([
 		0x00,
 		0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00
-		// (sequenceNumber >> 24),
-		// (sequenceNumber >> 16) & 0xFF,
-		// (sequenceNumber >> 8) & 0xFF,
-		// sequenceNumber & 0xFF,
+		// sequence number
+		(sequenceNumber >> 24),
+		(sequenceNumber >> 16) & 0xFF,
+		(sequenceNumber >> 8) & 0xFF,
+		sequenceNumber & 0xFF,
 	]));
-};
-MP4.minf = function (track) {
-	return MP4.box('minf', MP4.box('vmhd', MP4.VMHD), MP4.DINF, MP4.stbl(track));
-};
-MP4.moof = function (baseMediaDecodeTime, track) {
-	return MP4.box('moof', MP4.mfhd(), MP4.traf(track, baseMediaDecodeTime));
-};
-MP4.moov = function (tracks, duration, timescale) {
-	var boxes = [];
-	for (var _i = 0, tracks_1 = tracks; _i < tracks_1.length; _i++) {
-		var track = tracks_1[_i];
-		boxes.push(MP4.trak(track));
-	}
-	return MP4.box.apply(MP4, ['moov', MP4.mvhd(timescale, duration), MP4.mvex(tracks)].concat(boxes));
-};
-MP4.mvhd = function (timescale, duration) {
-	var bytes = new Uint8Array([
+}
+
+MP4.trex = (track) => {
+	const id = track.id;
+	return MP4.box('trex', new Uint8Array([
+		// flags
+		0x00, 0x00, 0x00, 0x00,
+		// track id
+		(id >> 24),
+		(id >> 16) & 0XFF,
+		(id >> 8) & 0XFF,
+		(id & 0xFF),
+		// default_sample_description_index
+		0x00, 0x00, 0x00, 0x01,
+		// default_sample_duration
+		0x00, 0x00, 0x00, 0x3c,
+		// default_sample_size
+		0x00, 0x00, 0x00, 0x00,
+		// default_sample_flags;
+		0x00, 0x01, 0x00, 0x00,
+	]));
+}
+
+MP4.moof = (sn, baseMediaDecodeTime, track) => {
+	return MP4.box('moof', MP4.mfhd(sn), MP4.traf(track, baseMediaDecodeTime));
+}
+
+MP4.mvex = (tracks) => {
+	return MP4.box('mvex', ...tracks.map(MP4.trex));
+}
+
+MP4.stsd = (track) => {
+	return MP4.box(
+		'stsd',
+		new Uint8Array([
+			// version
+			0x00,
+			// flags
+			0x00, 0x00, 0x00,
+			// entry count
+			0x00, 0x00, 0x00, 0x01
+		]),
+		new Uint8Array(track.codecData)
+	);
+}
+
+MP4.moov = (tracks, duration, timescale) => {
+	return MP4.box(
+		'moov',
+		MP4.mvhd(timescale, duration),
+		MP4.mvex(tracks),
+		...tracks.map(MP4.trak)
+	);
+}
+
+MP4.stbl = (track) => {
+	return MP4.box(
+		'stbl',
+		
+		// Sample description atom
+		MP4.stsd(track),
+		
+		// Time-to-sample atom
+		MP4.box('stts', new Uint8Array([
+			0x00,
+			0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00,
+		])),
+		
+		// Sample-to-chunk atom
+		MP4.box('stsc', new Uint8Array([
+			0x00,
+			0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00,
+		])),
+
+		// Sample Size atom
+		MP4.box('stsz', new Uint8Array([
+			0x00,
+			0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00,
+		])),
+
+		// Chunk Offset atom
+		MP4.box('stco', new Uint8Array([
+			0x00,
+			0x00, 0x00, 0x00,
+			0x00, 0x00, 0x00, 0x00,
+		]))
+	);
+}
+
+
+
+
+MP4.FTYP = MP4.box('ftyp', new Uint8Array([
+	0x69, 0x73, 0x6f, 0x35,
+	0x00, 0x00, 0x00, 0x01,
+	0x61, 0x76, 0x63, 0x31,
+	0x69, 0x73, 0x6f, 0x35,
+	0x64, 0x61, 0x73, 0x68,
+]));
+
+
+
+MP4.mdia = (track) => {
+	return MP4.box('mdia', MP4.mdhd(track.timescale), /*MP4.HDLR,*/ MP4.minf(track));
+}
+
+MP4.minf = (track) => {
+	return MP4.box('minf', MP4.box('vmhd', new Uint8Array([
+		0x00,
+		0x00, 0x00, 0x01,
+		0x00, 0x00,
+		0x00, 0x00,
+		0x00, 0x00,
+		0x00, 0x00,
+	])), /*MP4.DINF,*/ MP4.stbl(track));
+}
+
+MP4.mvhd = (timescale, duration) => {
+	return MP4.box('mvhd', new Uint8Array([
 		0x00,
 		0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00,
@@ -175,103 +218,11 @@ MP4.mvhd = function (timescale, duration) {
 		0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x02,
-	]);
-	return MP4.box('mvhd', bytes);
-};
-MP4.mvex = function (tracks) {
-	var boxes = [];
-	for (var _i = 0, tracks_2 = tracks; _i < tracks_2.length; _i++) {
-		var track = tracks_2[_i];
-		boxes.push(MP4.trex(track));
-	}
-	return MP4.box.apply(MP4, ['mvex'].concat(boxes, []));
-};
-MP4.trep = function () {
-	return MP4.box('trep', new Uint8Array([
-		0x00,
-		0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x01,
 	]));
-};
-MP4.stbl = function (track) {
-	return MP4.box('stbl', MP4.stsd(track), MP4.box('stts', MP4.STTS), MP4.box('stsc', MP4.STSC), MP4.box('stsz', MP4.STSZ), MP4.box('stco', MP4.STCO));
-};
-MP4.avc1 = function (track) {
-	var sps = [];
-	var pps = [];
-	track.pps=[];
-	track.sps=[];
-	for (var _i = 0, _a = track.sps; _i < _a.length; _i++) {
-		var data = _a[_i];
-		var len = data.byteLength;
-		sps.push((len >>> 8) & 0xFF);
-		sps.push((len & 0xFF));
-		sps = sps.concat(Array.prototype.slice.call(data));
-	}
-	for (var _b = 0, _c = track.pps; _b < _c.length; _b++) {
-		var data = _c[_b];
-		var len = data.byteLength;
-		pps.push((len >>> 8) & 0xFF);
-		pps.push((len & 0xFF));
-		pps = pps.concat(Array.prototype.slice.call(data));
-	}
-	var avcc = MP4.box('avcC', new Uint8Array([
-		0x01,
-		sps[3],
-		sps[4],
-		sps[5],
-		0xfc | 3,
-		0xE0 | track.sps.length,
-	].concat(sps).concat([
-		track.pps.length,
-	]).concat(pps)));
-	var width = track.width;
-	var height = track.height;
-	return MP4.box('avc1', new Uint8Array([
-		0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00,
-		0x00, 0x01,
-		0x00, 0x00,
-		0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-		(width >> 8) & 0xFF,
-		width & 0xff,
-		(height >> 8) & 0xFF,
-		height & 0xff,
-		0x00, 0x48, 0x00, 0x00,
-		0x00, 0x48, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x01,
-		0x12,
-		0x62, 0x69, 0x6E, 0x65,
-		0x6C, 0x70, 0x72, 0x6F,
-		0x2E, 0x72, 0x75, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x00, 0x00,
-		0x00, 0x18,
-		0x11, 0x11
-	]), avcc, MP4.box('btrt', new Uint8Array([
-		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x2d, 0xc6, 0xc0,
-		0x00, 0x2d, 0xc6, 0xc0,
-	])));
-};
-MP4.stsd = function (track) {
-	return MP4.box(
-		'stsd',
-		MP4.STSD,
-		new Uint8Array(track.codecData)
-	);
-};
-MP4.tkhd = function (track) {
-	var id = track.id;
-	var width = track.width;
-	var height = track.height;
+}
+
+MP4.tkhd = (track) => {
+	const { id, width, height } = track;
 	return MP4.box('tkhd', new Uint8Array([
 		0x00,
 		0x00, 0x00, 0x01,
@@ -305,11 +256,12 @@ MP4.tkhd = function (track) {
 		height & 0xFF,
 		0x00, 0x00,
 	]));
-};
-MP4.traf = function (track, baseMediaDecodeTime) {
+}
+
+MP4.traf = (track, baseMediaDecodeTime) => {
 	
 	
-	var id = track.id;
+	const id = track.id;
 	const duration = track.samples[0].duration;
 	console.info({duration});
 	// throw 1;
@@ -350,33 +302,20 @@ MP4.traf = function (track, baseMediaDecodeTime) {
 		4 +
 		4 +
 		8));
-};
-MP4.trak = function (track) {
+}
+
+MP4.trak = (track) => {
 	track.duration = track.duration || 0xffffffff;
 	return MP4.box('trak', MP4.tkhd(track), MP4.mdia(track));
-};
-MP4.trex = function (track) {
-	var id = track.id;
-	return MP4.box('trex', new Uint8Array([
-		0x00,
-		0x00, 0x00, 0x00,
-		(id >> 24),
-		(id >> 16) & 0XFF,
-		(id >> 8) & 0XFF,
-		(id & 0xFF),
-		0x00, 0x00, 0x00, 0x01,
-		0x00, 0x00, 0x00, 0x3c,
-		0x00, 0x00, 0x00, 0x00,
-		0x00, 0x01, 0x00, 0x00,
-	]));
-};
-MP4.trun = function (track, offset) {
-	var samples = track.samples || [];
-	var len = samples.length;
+}
+
+MP4.trun = (track, offset) => {
+	const samples = track.samples || [];
+	const len = samples.length;
 	track.isKeyFrame = true;
-	var additionalLen = track.isKeyFrame ? 4 : 0;
-	var arraylen = 12 + additionalLen + ((4 + 4 + 0) * len);
-	var array = new Uint8Array(arraylen);
+	const additionalLen = track.isKeyFrame ? 4 : 0;
+	const arraylen = 12 + additionalLen + ((4 + 4 + 0) * len);
+	const array = new Uint8Array(arraylen);
 	offset += 8 + arraylen;
 	array.set([
 		0x00,
@@ -425,25 +364,23 @@ MP4.trun = function (track, offset) {
 		], 12 + additionalLen + 8 * i);
 	}
 	return MP4.box('trun', array);
-};
-MP4.initSegment = function (tracks, duration, timescale) {
-	var movie = MP4.moov(tracks, duration, timescale);
-	var result = new Uint8Array(MP4.FTYP.byteLength + movie.byteLength);
+}
+
+MP4.initSegment = (tracks, duration, timescale) => {
+	const movie = MP4.moov(tracks, duration, timescale);
+	const result = new Uint8Array(MP4.FTYP.byteLength + movie.byteLength);
 	result.set(MP4.FTYP);
 	result.set(movie, MP4.FTYP.byteLength);
 	return result;
-};
-MP4.fragmentSegment = function (baseMediaDecodeTime, track, payload) {
+}
 
-	// ftyp moov styp? moof
-
-	var moof = MP4.moof(baseMediaDecodeTime, track);
-	var mdat = MP4.mdat(payload);
-	var result = new Uint8Array(/*MP4.STYP.byteLength*/0 + moof.byteLength + mdat.byteLength);
-	// result.set(MP4.STYP);
-	result.set(moof, /*MP4.STYP.byteLength*/0);
-	result.set(mdat, /*MP4.STYP.byteLength*/0 + moof.byteLength);
+MP4.fragmentSegment = (baseMediaDecodeTime, track, payload) => {
+	const moof = MP4.moof(0, baseMediaDecodeTime, track);
+	const mdat = MP4.mdat(payload);
+	const result = new Uint8Array(moof.byteLength + mdat.byteLength);
+	result.set(moof, 0);
+	result.set(mdat, moof.byteLength);
 	return result;
-};
+}
 
 module.exports = MP4;
