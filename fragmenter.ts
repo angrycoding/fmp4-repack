@@ -45,7 +45,9 @@ const getFragmentInfo = (data: Uint8Array): Track[] | undefined => {
 			),
 			samples: trak.samples.map((sample: any) => ({
 				size: sample.size,
-				duration: sample.duration
+				duration: sample.duration,
+				dts: sample.dts,
+				cts: sample.cts
 			}))
 		}
 	});

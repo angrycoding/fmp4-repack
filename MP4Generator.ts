@@ -80,13 +80,16 @@ const moofAtom = (baseMediaDecodeTime: number, track: Track) => MP4Box(
 			// * `...D|........` sample‐duration‐present
 			// * `....|.....E..` first‐sample‐flags‐present
 			// * `....|.......G` data-offset-present
-			0x00, 0b00000010, 0b00000001,
+			0x00, 0b00001010, 0b00000001,
 			// number of samples
 			...uint32arr(track.samples.length),
 			// data offset (data-offset-present flag)
 			42, 42, 42, 42,
 			// sample sizes (sample‐size‐present flag)
-			...track.samples.map(sample => uint32arr(sample.size)).flat()
+			...track.samples.map(sample => [
+				...uint32arr(sample.size),
+				...uint32arr(sample.cts - sample.dts)
+			]).flat(Infinity) as number[]
 		]))
 	)
 );

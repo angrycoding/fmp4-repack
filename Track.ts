@@ -3,7 +3,12 @@ interface Track {
 	data: Uint8Array
 	timescale: number
 	codecData: Uint8Array
-	samples: {size: number, duration: number}[];
+	samples: {
+		size: number,
+		duration: number,
+		cts: number,
+		dts: number
+	}[];
 }
 
 export default Track;
