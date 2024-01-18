@@ -287,20 +287,11 @@ export default {
 			if (moof[index + 1] === 42 && 
 				moof[index + 2] === 42 &&
 				moof[index + 3] === 42) {
-					console.info('good');
 				break;
-			} else {
-				console.info('BAD')
 			}
 		}
 
-
-		const x = moof.length + 8;
-		moof[index + 0] = (x >> 24) & 0xFF;
-		moof[index + 1] = (x >> 16) & 0xFF;
-		moof[index + 2] = (x >> 8) & 0xFF;
-		moof[index + 3] = (x >> 0) & 0xFF;
-
+		moof.set(uint32arr(moof.length + 8), index);
 		const mdat = MP4Box('mdat', payload);
 		const result = new Uint8Array(moof.byteLength + mdat.byteLength);
 		result.set(moof, 0);
