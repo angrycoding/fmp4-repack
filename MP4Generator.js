@@ -273,13 +273,27 @@ const moovAtom = (tracks) => MP4Box(
 	))
 );
 
-module.exports = {
+export default {
 	initSegment: (tracks) => {
 		return moovAtom(tracks);
 	},
 	fragmentSegment: (baseMediaDecodeTime, track, payload) => {
 		const moof = moofAtom(baseMediaDecodeTime, track);
-		const index = moof.indexOf(42);
+
+		let index = -1;
+
+		for (;;) {
+			index = moof.indexOf(42, index + 1);
+			if (moof[index + 1] === 42 && 
+				moof[index + 2] === 42 &&
+				moof[index + 3] === 42) {
+					console.info('good');
+				break;
+			} else {
+				console.info('BAD')
+			}
+		}
+
 
 		const x = moof.length + 8;
 		moof[index + 0] = (x >> 24) & 0xFF;
