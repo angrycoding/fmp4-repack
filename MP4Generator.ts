@@ -1,18 +1,18 @@
-const uint32arr = (value) => [
+import Track from "./Track";
+
+const uint32arr = (value: number) => [
 	(value >> 24) & 0xFF,
 	(value >> 16) & 0xFF,
 	(value >> 8) & 0xFF,
 	value & 0xFF,
 ]
 
-const MP4Box = (type, ...payload) => {
-
-	type = type.split('').map(ch => ch.charCodeAt(0));
+const MP4Box = (type: string, ...payload: Uint8Array[]) => {
 
 	let size = 8;
 
 	for (const p of payload) {
-		size += p.byteLength || p.length;
+		size += p.byteLength;
 	}
 
 	const result = new Uint8Array(size);
@@ -20,18 +20,18 @@ const MP4Box = (type, ...payload) => {
 	result[1] = (size >> 16) & 0xff;
 	result[2] = (size >> 8) & 0xff;
 	result[3] = size & 0xff;
-	result.set(type, 4);
+	result.set(type.split('').map(ch => ch.charCodeAt(0)), 4);
 	size = 8;
 
 	for (const box of payload) {
 		result.set(box, size);
-		size += (box.byteLength || box.length);
+		size += box.byteLength;
 	}
 
 	return result;
 }
 
-const moofAtom = (baseMediaDecodeTime, track) => MP4Box(
+const moofAtom = (baseMediaDecodeTime: number, track: Track) => MP4Box(
 	'moof',
 	MP4Box(
 		'mfhd',
@@ -91,7 +91,7 @@ const moofAtom = (baseMediaDecodeTime, track) => MP4Box(
 	)
 );
 
-const moovAtom = (tracks) => MP4Box(
+const moovAtom = (tracks: Track[]) => MP4Box(
 	'moov',
 	MP4Box(
 		'mvhd',
@@ -274,10 +274,12 @@ const moovAtom = (tracks) => MP4Box(
 );
 
 export default {
-	initSegment: (tracks) => {
+
+	initSegment: (tracks: Track[]) => {
 		return moovAtom(tracks);
 	},
-	fragmentSegment: (baseMediaDecodeTime, track, payload) => {
+
+	fragmentSegment: (baseMediaDecodeTime: number, track: Track) => {
 		const moof = moofAtom(baseMediaDecodeTime, track);
 
 		let index = -1;
@@ -291,8 +293,8 @@ export default {
 			}
 		}
 
-		moof.set(uint32arr(moof.length + 8), index);
-		const mdat = MP4Box('mdat', payload);
+		moof.set(uint32arr(moof.byteLength + 8), index);
+		const mdat = MP4Box('mdat', track.data);
 		const result = new Uint8Array(moof.byteLength + mdat.byteLength);
 		result.set(moof, 0);
 		result.set(mdat, moof.byteLength);

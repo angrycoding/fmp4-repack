@@ -2,7 +2,7 @@ import FS from 'fs';
 import Fragmenter from './fragmenter';
 
 
-const readFileUint8 = (path) => {
+const readFileUint8 = (path: string) => {
 	return new Uint8Array(FS.readFileSync(path))
 }
 
@@ -10,7 +10,9 @@ const fragmenter = new Fragmenter();
 
 
 const buf = [
-	fragmenter.push(readFileUint8('./test-1minute/output000.mp4')),
+	fragmenter.push(readFileUint8('./videofrags/1.mp4')),
+	fragmenter.push(readFileUint8('./videofrags/2.mp4')),
+	fragmenter.push(readFileUint8('./videofrags/3.mp4')),
 ]
 
 

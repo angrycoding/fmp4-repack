@@ -2,13 +2,13 @@
 	"compileOnSave": false,
 	"strictNullChecks": true,
 	"compilerOptions": {
-	  "noUnusedLocals": false,
-	  "noUnusedParameters": false,
+	  "noUnusedLocals": true,
+	  "noUnusedParameters": true,
 	  "declaration": true,
 	  "removeComments": true,
 	  "module": "commonjs",
 	  "target": "es6",
-	  "noImplicitAny": false,
+	  "noImplicitAny": true,
 	  "resolveJsonModule": true,
 	  "types": [
 		"node",
