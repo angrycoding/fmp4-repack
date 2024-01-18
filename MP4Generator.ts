@@ -85,6 +85,16 @@ const moofAtom = (baseMediaDecodeTime: number, track: Track) => MP4Box(
 			...uint32arr(track.samples.length),
 			// data offset (data-offset-present flag)
 			42, 42, 42, 42,
+
+			/** @todo
+			 * looks like we have "a bit" incorrect time calc for audio track here
+			 * but it doesn't give any problems "yet", so I assume I can leave it as it is for now
+			 * https://stackoverflow.com/questions/52297132/calculate-pts-and-dts-for-encoding-new-video-and-audio-in-ffmpeg
+			 * Assuming your frame rate is constant. And after setting stream time bases correctly.
+			 * Start both pts's from zero (0). Audio pts will increase by 'sample per frame' for each frame.
+			 * This is typically audio_sample_rate / frame_rate (i.e. 48000/60 = 800).
+			*/
+
 			// sample sizes (sample‐size‐present flag)
 			...track.samples.map(sample => [
 				...uint32arr(sample.size),
