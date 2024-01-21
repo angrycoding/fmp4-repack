@@ -61,3 +61,5 @@ FS.writeFileSync('./0.mp4', Buffer.concat([
 	fragmenter.push(readFileUint8('./videofrags/9.mp4')).data,
 ]));
 ```
+
+Yeah well, I know it's not library, just need some time to make this tsconfig, rollup and all that important stuff so you can just yarn add it. I'll do it when I'll have some time.
