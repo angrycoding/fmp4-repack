@@ -82,4 +82,7 @@ So it just reads fragments from videofrags dir and produces one 0.mp4 file so yo
 ffplay 0.mp4
 ```
 
+![image](https://github.com/angrycoding/fmp4-repack/assets/895042/b704d41e-1457-48a7-9526-7aa187fe38bb)
+
+
 Yeah well, I know it's not library, just need some time to make this tsconfig, rollup and all that important stuff so you can just yarn add it. I'll do it when I'll have some time.
