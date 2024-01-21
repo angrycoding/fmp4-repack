@@ -38,7 +38,7 @@ we have to have moov moof mdat moof mdat moof mdat. Sounds easy right?
 
 # Library usage
 
-```
+```typescript
 import FS from 'fs';
 import Fragmenter from './src/fragmenter';
 
