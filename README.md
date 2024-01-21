@@ -38,6 +38,20 @@ we have to have moov moof mdat moof mdat moof mdat. Sounds easy right?
 
 # Library usage
 
+Make sure that you install all deps:
+
+```
+yarn
+```
+
+then just run something like this:
+
+```
+npx ts-node index.ts
+```
+
+index.ts source code is literally:
+
 ```typescript
 import FS from 'fs';
 import Fragmenter from './src/fragmenter';
@@ -60,6 +74,12 @@ FS.writeFileSync('./0.mp4', Buffer.concat([
 	fragmenter.push(readFileUint8('./videofrags/8.mp4')).data,
 	fragmenter.push(readFileUint8('./videofrags/9.mp4')).data,
 ]));
+```
+
+So it just reads fragments from videofrags dir and produces one 0.mp4 file so you can check it with:
+
+```
+ffplay 0.mp4
 ```
 
 Yeah well, I know it's not library, just need some time to make this tsconfig, rollup and all that important stuff so you can just yarn add it. I'll do it when I'll have some time.
