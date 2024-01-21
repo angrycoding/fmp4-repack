@@ -1,5 +1,5 @@
 import FS from 'fs';
-import Fragmenter from './fragmenter';
+import Fragmenter from './src/fragmenter';
 
 
 const readFileUint8 = (path: string) => {
